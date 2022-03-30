@@ -1,0 +1,8 @@
+Stations
+PK:id name latitude longitude
+
+TubeLines
+PK:id name
+
+TubeLineStations
+PK:id tubeLineId stationId

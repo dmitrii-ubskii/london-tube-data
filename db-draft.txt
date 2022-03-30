@@ -1,8 +1,0 @@
-Stations
-PK:ID Name Lat Long
-
-Lines
-PK:Index Name
-
-LineToStations
-PK:ID FK:LineIndex FK:StationID
