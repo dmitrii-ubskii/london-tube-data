@@ -132,9 +132,8 @@ if __name__ == '__main__':
                     print('Usage: station STATION_NAME')
             elif command in ('help', 'h', '?'):
                 print('Commands: q[uit] | l[ine] LINE_NAME | s[tation] STATION_NAME | h[elp] | ?')
-            else:  # not a station either
+            else:
                 print(f'ERROR: `{command}` is not a recognized line or station name.')
-
 
     except EOFError:  # Ctrl+D to exit
         pass
