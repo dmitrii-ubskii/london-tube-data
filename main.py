@@ -4,6 +4,7 @@ import json
 import readline
 
 import MySQLdb
+import MySQLdb.cursors  # for the type hint
 
 
 def populate_db(conn: MySQLdb.Connection):
@@ -61,6 +62,48 @@ def populate_db(conn: MySQLdb.Connection):
     )
 
 
+def print_line_stations(line_name: str, cursor: MySQLdb.cursors.Cursor):
+    cursor.execute('SELECT id FROM TubeLines WHERE name = %s;', (line_name,))
+    result = cursor.fetchone()
+    if result is None:
+        print(f'ERROR: Line by the name `{line_name}` not found.')
+        return
+
+    line_id = result
+    cursor.execute('''
+        SELECT name
+        FROM TubeLineStations JOIN Stations
+            ON (TubeLineStations.stationId = Stations.id)
+        WHERE tubeLineId = %s;
+    ''', (line_id,))
+    print(f'Stations on the tube line "{line_name}":')
+    for station_name, in cursor.fetchall():
+        print(f'    {station_name}')
+
+
+def print_station_lines(station_name: str, cursor: MySQLdb.cursors.Cursor):
+    cursor.execute('SELECT id FROM Stations WHERE name = %s;', (station_name,))
+    result = cursor.fetchone()
+    if result is None:
+        print(f'ERROR: Station by the name `{station_name}` not found.')
+        return
+
+    station_id = result
+    cursor.execute('''
+        SELECT name
+        FROM TubeLineStations JOIN TubeLines
+            ON (TubeLineStations.tubeLineId = TubeLines.id)
+        WHERE stationId = %s;
+    ''', (station_id,))
+    lines = cursor.fetchall()
+    if len(lines) == 1:
+        line_name = lines[0][0]
+        print(f'The station {station_name} is located on the {line_name} line.')
+    else:
+        print(f'The station {station_name} is located on the following lines: ', end='')
+        print(', '.join(map(lambda x: x[0], lines)))
+
+
 if __name__ == '__main__':
     try:
         conn = MySQLdb.connect(user='dbuser', passwd='12345678')
@@ -69,43 +112,28 @@ if __name__ == '__main__':
         cursor = conn.cursor()
         while True:
             command = input('> ')
-            if command == 'quit' or command == 'q':
+            command = command.strip()
+            if command.lower() in ('quit', 'q'):
                 break
-            # assume line
-            cursor.execute('SELECT id FROM TubeLines WHERE name = %s;', (command,))
-            result = cursor.fetchone()
-            if result is not None:  # it IS a line
-                line_id = result
-                cursor.execute('''
-                    SELECT name
-                    FROM TubeLineStations JOIN Stations
-                        ON (TubeLineStations.stationId = Stations.id)
-                    WHERE tubeLineId = %s;
-                ''', (line_id,))
-                print(f'Stations on the tube line "{command}":')
-                for station_name, in cursor.fetchall():
-                    print(f'    {station_name}')
-            else:  # not a line; a station?
-                cursor.execute('SELECT id FROM Stations WHERE name = %s;', (command,))
-                result = cursor.fetchone()
-                if result is not None:  # it IS a station
-                    station_id = result
-                    cursor.execute('''
-                        SELECT name
-                        FROM TubeLineStations JOIN TubeLines
-                            ON (TubeLineStations.tubeLineId = TubeLines.id)
-                        WHERE stationId = %s;
-                    ''', (station_id,))
-                    lines = cursor.fetchall()
-                    if len(lines) == 1:
-                        line_name = lines[0][0]
-                        print(f'The station {command} is located on the {line_name} line.')
-                    else:
-                        print(f'The station {command} is located on the following lines: ', end='')
-                        print(', '.join(map(lambda x: x[0], lines)))
-
-                else:  # not a station either
-                    print(f'ERROR: `{command}` is not a recognized line or station name.')
+            if ' ' in command:
+                command, name = command.split(' ', maxsplit=1)
+            else:
+                name = None
+            command = command.lower()
+            if command in ('line', 'l'):
+                if name is not None:
+                    print_line_stations(name, cursor)
+                else:
+                    print('Usage: line LINE_NAME')
+            elif command in ('station', 's'):
+                if name is not None:
+                    print_station_lines(name, cursor)
+                else:
+                    print('Usage: station STATION_NAME')
+            elif command in ('help', 'h', '?'):
+                print('Commands: q[uit] | l[ine] LINE_NAME | s[tation] STATION_NAME | h[elp] | ?')
+            else:  # not a station either
+                print(f'ERROR: `{command}` is not a recognized line or station name.')
 
 
     except EOFError:  # Ctrl+D to exit
